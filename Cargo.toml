@@ -1,0 +1,10 @@
+[package]
+name = "pgp-encryption"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sequoia-openpgp = "1.18"
+structopt = "0.3"
+indicatif = "0.17"
+walkdir = "2.4"
