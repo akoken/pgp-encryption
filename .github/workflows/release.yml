@@ -36,7 +36,7 @@ jobs:
         run: |
           choco install pkgconfiglite
           choco install msys2
-          pacman -S mingw-w64-x86_64-{clang,pkg-config,nettle} libnettle-devel
+          pacman -S mingw-w64-x86_64-nettle
           
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
