@@ -35,7 +35,8 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           choco install pkgconfiglite
-          choco install nettle
+          choco install msys2
+          pacman -S mingw-w64-x86_64-{clang,pkg-config,nettle} libnettle-devel
           
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
