@@ -1,3 +1,4 @@
+use clap::Parser;
 use openpgp::parse::Parse;
 use openpgp::policy::StandardPolicy;
 use openpgp::serialize::stream::{Encryptor2, LiteralWriter, Message};
@@ -6,7 +7,6 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process;
-use structopt::StructOpt;
 use walkdir::WalkDir;
 
 // Exit codes
@@ -16,26 +16,48 @@ const EXIT_KEY_ERROR: i32 = 2;
 const EXIT_ENCRYPTION_ERROR: i32 = 3;
 const EXIT_IO_ERROR: i32 = 4;
 
-#[derive(StructOpt, Debug)]
-#[structopt(name = "pgp-encrypt", about = "Encrypt files using PGP")]
+#[derive(Parser, Debug)]
+#[command(name = "pgp-encrypt", about = "Encrypt files using PGP")]
 struct Opt {
     /// Input folder containing files to encrypt
-    #[structopt(short, long, parse(from_os_str))]
+    #[arg(short, long, value_name = "INPUT_DIR")]
     folder: PathBuf,
 
+    /// Output folder for encrypted files
+    #[arg(short, long, value_name = "OUTPUT_DIR")]
+    output: PathBuf,
+
     /// Public key file path
-    #[structopt(short, long, parse(from_os_str))]
+    #[arg(short, long, value_name = "KEY_FILE")]
     key: PathBuf,
 }
 
 fn run() -> Result<(), (i32, String)> {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     // Validate input folder
-    if !opt.folder.exists() {
+    if !opt.folder.exists() || !opt.folder.is_dir() {
         return Err((
             EXIT_INVALID_INPUT,
-            format!("Input folder '{}' does not exist", opt.folder.display()),
+            format!(
+                "Input folder '{}' does not exist or is not a directory",
+                opt.folder.display()
+            ),
+        ));
+    }
+
+    // Validate or create output folder
+    if !opt.output.exists() {
+        fs::create_dir_all(&opt.output).map_err(|e| {
+            (
+                EXIT_IO_ERROR,
+                format!("Failed to create output directory: {}", e),
+            )
+        })?;
+    } else if !opt.output.is_dir() {
+        return Err((
+            EXIT_INVALID_INPUT,
+            format!("Output path '{}' is not a directory", opt.output.display()),
         ));
     }
 
@@ -74,13 +96,13 @@ fn run() -> Result<(), (i32, String)> {
         ));
     }
 
-    // Process all files
+    // Process all files in the input folder
     for entry in WalkDir::new(&opt.folder)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
     {
-        let file_path = entry.path().to_owned();
+        let file_path = entry.path();
 
         // Skip if file is already encrypted
         if file_path.extension().map_or(false, |ext| ext == "pgp") {
@@ -88,7 +110,7 @@ fn run() -> Result<(), (i32, String)> {
         }
 
         // Read input file
-        let input_data = fs::read(&file_path).map_err(|e| {
+        let input_data = fs::read(file_path).map_err(|e| {
             (
                 EXIT_IO_ERROR,
                 format!("Failed to read {}: {}", file_path.display(), e),
@@ -99,8 +121,6 @@ fn run() -> Result<(), (i32, String)> {
         let mut encrypted_data = Vec::new();
         {
             let message = Message::new(&mut encrypted_data);
-
-            // Create encryptor using Encryptor2
             let encryptor = Encryptor2::for_recipients(message, recipients.iter())
                 .build()
                 .map_err(|e| {
@@ -109,24 +129,18 @@ fn run() -> Result<(), (i32, String)> {
                         format!("Failed to create encryptor: {}", e),
                     )
                 })?;
-
-            // Create literal writer
             let mut literal_writer = LiteralWriter::new(encryptor).build().map_err(|e| {
                 (
                     EXIT_ENCRYPTION_ERROR,
                     format!("Failed to create writer: {}", e),
                 )
             })?;
-
-            // Write data
             literal_writer.write_all(&input_data).map_err(|e| {
                 (
                     EXIT_ENCRYPTION_ERROR,
                     format!("Failed to write data: {}", e),
                 )
             })?;
-
-            // Finalize
             literal_writer.finalize().map_err(|e| {
                 (
                     EXIT_ENCRYPTION_ERROR,
@@ -135,28 +149,27 @@ fn run() -> Result<(), (i32, String)> {
             })?;
         }
 
-        // Create temporary file for atomic replacement
-        let temp_path = file_path.with_extension("pgp.tmp");
-        fs::write(&temp_path, &encrypted_data).map_err(|e| {
-            (
-                EXIT_IO_ERROR,
-                format!(
-                    "Failed to write temporary file {}: {}",
-                    temp_path.display(),
-                    e
-                ),
-            )
-        })?;
+        // Determine output file path
+        let relative_path = file_path.strip_prefix(&opt.folder).unwrap_or(file_path);
+        let output_path = opt.output.join(relative_path).with_extension("pgp");
 
-        // Atomically replace original file with encrypted version
-        fs::rename(&temp_path, &file_path).map_err(|e| {
-            // Try to clean up temp file if rename fails
-            let _ = fs::remove_file(&temp_path);
+        // Ensure output directories exist
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                (
+                    EXIT_IO_ERROR,
+                    format!("Failed to create output directories: {}", e),
+                )
+            })?;
+        }
+
+        // Write encrypted file to output folder
+        fs::write(&output_path, &encrypted_data).map_err(|e| {
             (
                 EXIT_IO_ERROR,
                 format!(
-                    "Failed to replace original file {}: {}",
-                    file_path.display(),
+                    "Failed to write encrypted file {}: {}",
+                    output_path.display(),
                     e
                 ),
             )
@@ -175,4 +188,3 @@ fn main() {
         }
     }
 }
-
