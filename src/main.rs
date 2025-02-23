@@ -33,7 +33,12 @@ struct Opt {
 }
 
 fn run() -> Result<(), (i32, String)> {
-    let opt = Opt::parse();
+    let args: Vec<String> = std::env::args().collect();
+    run_with_args(&args.iter().map(String::as_str).collect::<Vec<&str>>())
+}
+
+fn run_with_args(args: &[&str]) -> Result<(), (i32, String)> {
+    let opt = Opt::parse_from(args);
 
     // Validate input folder
     if !opt.folder.exists() || !opt.folder.is_dir() {
@@ -105,7 +110,7 @@ fn run() -> Result<(), (i32, String)> {
         let file_path = entry.path();
 
         // Skip if file is already encrypted
-        if file_path.extension().map_or(false, |ext| ext == "pgp") {
+        if file_path.extension().is_some_and(|ext| ext == "pgp") {
             continue;
         }
 
