@@ -193,3 +193,76 @@ fn main() {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use openpgp::cert::CertBuilder;
+    use sequoia_openpgp::serialize::Marshal;
+    use std::fs::{self, File};
+    use std::path::Path;
+    use tempfile::{tempdir, TempDir};
+
+    // Helper function to create a test environment
+    fn setup_test_environment() -> (TempDir, TempDir, PathBuf) {
+        let input_dir = tempdir().unwrap();
+        let output_dir = tempdir().unwrap();
+
+        let (cert, _) = CertBuilder::new()
+            .add_userid("test@example.com")
+            .add_transport_encryption_subkey()
+            .generate()
+            .unwrap();
+
+        let key_path = input_dir.path().join("test_key.pgp");
+        let mut key_file = File::create(&key_path).unwrap();
+        cert.armored().serialize(&mut key_file).unwrap();
+
+        (input_dir, output_dir, key_path)
+    }
+
+    // Helper function to run tests with args
+    fn run_test_with_args(folder: &Path, output: &Path, key: &Path) -> Result<(), (i32, String)> {
+        let args = vec![
+            "pgp-encrypt",
+            "--folder",
+            folder.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+            "--key",
+            key.to_str().unwrap(),
+        ];
+        run_with_args(&args)
+    }
+
+    #[test]
+    fn test_successful_encryption() {
+        let (input_dir, output_dir, key_path) = setup_test_environment();
+        assert!(run_test_with_args(input_dir.path(), output_dir.path(), &key_path).is_ok());
+    }
+
+    #[test]
+    fn test_invalid_input_directory() {
+        let (_, output_dir, key_path) = setup_test_environment();
+        let invalid_folder = PathBuf::from("/nonexistent/directory");
+        let result = run_test_with_args(&invalid_folder, output_dir.path(), &key_path);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().0, EXIT_INVALID_INPUT);
+    }
+
+    #[test]
+    fn test_invalid_key_file() {
+        let (input_dir, output_dir, _) = setup_test_environment();
+        let invalid_key = PathBuf::from("/nonexistent/key.pgp");
+        let result = run_test_with_args(input_dir.path(), output_dir.path(), &invalid_key);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().0, EXIT_INVALID_INPUT);
+    }
+
+    #[test]
+    fn test_empty_input_directory() {
+        let (input_dir, output_dir, key_path) = setup_test_environment();
+        assert!(run_test_with_args(input_dir.path(), output_dir.path(), &key_path).is_ok());
+        assert!(fs::read_dir(output_dir.path()).unwrap().count() == 0);
+    }
+}

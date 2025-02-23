@@ -904,6 +904,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "sequoia-openpgp",
+ "tempfile",
  "walkdir",
 ]
 

@@ -7,3 +7,6 @@ edition = "2021"
 walkdir = "2.4"
 sequoia-openpgp = "1.16"
 clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.8"
