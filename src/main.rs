@@ -203,13 +203,12 @@ mod tests {
     use std::path::Path;
     use tempfile::{tempdir, TempDir};
 
-    // Helper function to create a test environment
     fn setup_test_environment() -> (TempDir, TempDir, PathBuf) {
         let input_dir = tempdir().unwrap();
         let output_dir = tempdir().unwrap();
 
         let (cert, _) = CertBuilder::new()
-            .add_userid("test@example.com")
+            .add_userid("test@test.com")
             .add_transport_encryption_subkey()
             .generate()
             .unwrap();
@@ -221,7 +220,6 @@ mod tests {
         (input_dir, output_dir, key_path)
     }
 
-    // Helper function to run tests with args
     fn run_test_with_args(folder: &Path, output: &Path, key: &Path) -> Result<(), (i32, String)> {
         let args = vec![
             "pgp-encrypt",

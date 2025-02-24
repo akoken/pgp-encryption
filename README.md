@@ -12,7 +12,7 @@ This is a Rust-based command-line tool that encrypts files using PGP (Pretty Goo
 ## Installation
 Clone the repository and navigate to the project directory:
 ```sh
-git clone https://github.com/yourusername/pgp-encryption.git
+git clone https://github.com/akoken/pgp-encryption.git
 cd pgp-encryption
 ```
 
@@ -34,7 +34,7 @@ Run the tool using the following command:
 
 ### Example:
 ```sh
-./target/release/pgp-encryption -f ./documents -o ./encrypted -k mykey.asc
+./target/release/pgp-encryption -f ./documents -o ./encrypted -k public-key.asc
 ```
 
 ## Build from Source
