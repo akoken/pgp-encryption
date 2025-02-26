@@ -156,7 +156,9 @@ fn run_with_args(args: &[&str]) -> Result<(), (i32, String)> {
 
         // Determine output file path
         let relative_path = file_path.strip_prefix(&opt.folder).unwrap_or(file_path);
-        let output_path = opt.output.join(relative_path).with_extension("pgp");
+        let mut output_path = opt.output.join(relative_path);
+        let new_file_name = format!("{}.pgp", output_path.file_name().unwrap().to_string_lossy());
+        output_path.set_file_name(new_file_name);
 
         // Ensure output directories exist
         if let Some(parent) = output_path.parent() {
